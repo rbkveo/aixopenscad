@@ -95,6 +95,42 @@ class RAGService {
             }
         }
     }
+
+    async loadBOSL2Index() {
+        try {
+            // Check if we already have knowledge
+            const { data: existing } = await localDBService.getAllKnowledge();
+            if (existing && existing.length > 0) {
+                console.log('RAG Knowledge Base already populated with ' + existing.length + ' chunks.');
+                return;
+            }
+
+            console.log('Loading BOSL2 Index...');
+            const response = await fetch('/bosl2_index.json');
+            if (!response.ok) throw new Error('Failed to load BOSL2 index file');
+
+            const chunks = await response.json();
+            console.log(`Ingesting ${chunks.length} BOSL2 chunks...`);
+
+            // Bulk add would be faster but we have saveKnowledgeChunk
+            // Let's do it in parallel bundles
+            const batchSize = 50;
+            for (let i = 0; i < chunks.length; i += batchSize) {
+                const batch = chunks.slice(i, i + batchSize);
+                await Promise.all(batch.map(chunk =>
+                    localDBService.saveKnowledgeChunk(
+                        chunk.content,
+                        chunk.embedding,
+                        { source: chunk.metadata?.source || 'BOSL2' }
+                    )
+                ));
+            }
+
+            console.log('BOSL2 Indexing Complete.');
+        } catch (e) {
+            console.error('Failed to load BOSL2 index:', e);
+        }
+    }
 }
 
 export const ragService = new RAGService();

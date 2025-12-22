@@ -73,6 +73,9 @@ function App() {
 
       // Load local design history
       fetchChats();
+
+      // Initialize BOSL2 RAG
+      ragService.loadBOSL2Index().catch(err => console.error("Auto-loading BOSL2 index failed:", err));
     };
     init();
   }, []);
@@ -317,19 +320,13 @@ function App() {
     setIsIndexing(true);
     setPipelineStatus('Syncing Knowledge Base...');
     try {
-      // For now, we fetch a pre-generated index from public/bosl2_index.json
-      // The user will need to run the indexing script once.
-      const response = await fetch('/bosl2_index.json');
-      if (!response.ok) throw new Error("Index file not found. Run the indexing script first.");
-
-      const knowledge = await response.json();
+      // Force reload by clearing first? 
+      // loadBOSL2Index only loads if empty. 
+      // If user clicks Sync, they probably want to FORCE resync.
+      // So we clear first.
       await localDBService.clearKnowledge();
-
-      for (let item of knowledge) {
-        await localDBService.saveKnowledgeChunk(item.content, item.embedding, item.metadata);
-      }
-
-      alert(`Synchronized ${knowledge.length} BOSL2 knowledge chunks!`);
+      await ragService.loadBOSL2Index();
+      alert("Synchronized BOSL2 knowledge base!");
     } catch (e) {
       console.error("Sync failed:", e);
       alert("Failed to sync knowledge: " + e.message);

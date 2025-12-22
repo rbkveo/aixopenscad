@@ -28,12 +28,86 @@ class OpenSCADService {
             });
 
             this.instance = wrapper.getInstance();
+
+            // Inject BOSL2 library
+            await this.injectBOSL2();
+
             this.ready = true;
             this.isDirty = false;
             console.log('OpenSCAD WASM initialized successfully');
         } catch (error) {
             console.error('Failed to initialize OpenSCAD WASM:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Injects the BOSL2 library into the WASM virtual file system.
+     * Fetches the file list from public/bosl2_files.json and loads each file.
+     */
+    async injectBOSL2() {
+        if (!this.instance) throw new Error("WASM instance not ready");
+
+        console.log("Starting BOSL2 injection...");
+        const FS = this.instance.FS;
+
+        try {
+            // 1. Fetch file list
+            const response = await fetch('/bosl2_files.json');
+            if (!response.ok) {
+                console.warn("Could not load bosl2_files.json. BOSL2 will not be available.");
+                return;
+            }
+            const fileList = await response.json();
+            console.log(`Found ${fileList.length} BOSL2 files to inject.`);
+
+            // 2. Ensure /libraries/BOSL2 directory exists
+            // We use /libraries/BOSL2 to mimic standard library path structure or just /BOSL2
+            // The user requested /BOSL2 in the prompt example, but let's see.
+            // "OpenSCAD will look for libraries in the OPENSCADPATH environment variable."
+            // Let's adhere to the prompt's recommendation of /BOSL2 for simplicity.
+
+            if (!FS.analyzePath('/BOSL2').exists) {
+                FS.mkdir('/BOSL2');
+            }
+
+            // 3. Load files
+            const baseUrl = '/libraries/BOSL2/';
+
+            const loadPromises = fileList.map(async (filePath) => {
+                try {
+                    // Create subdirectories if needed
+                    const parts = filePath.split('/');
+                    if (parts.length > 1) {
+                        let currentPath = '/BOSL2';
+                        for (let i = 0; i < parts.length - 1; i++) {
+                            currentPath += '/' + parts[i];
+                            if (!FS.analyzePath(currentPath).exists) {
+                                FS.mkdir(currentPath);
+                            }
+                        }
+                    }
+
+                    const response = await fetch(`${baseUrl}${filePath}`);
+                    if (!response.ok) throw new Error(`Failed to fetch ${filePath}`);
+                    const content = await response.text();
+
+                    FS.writeFile(`/BOSL2/${filePath}`, content);
+                } catch (err) {
+                    console.warn(`Failed to inject BOSL2 file: ${filePath}`, err);
+                }
+            });
+
+            await Promise.all(loadPromises);
+            console.log("BOSL2 injection complete.");
+
+            // 4. Set OPENSCADPATH
+            // If we put files in /BOSL2, and we want `include <BOSL2/std.scad>` to work:
+            // If OPENSCADPATH is /, then include <BOSL2/std.scad> looks for /BOSL2/std.scad. Correct.
+            // this.instance.setenv("OPENSCADPATH", "/");
+
+        } catch (e) {
+            console.error("Error injecting BOSL2:", e);
         }
     }
 
