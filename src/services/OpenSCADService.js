@@ -227,6 +227,11 @@ class OpenSCADService {
             return 'FILE_NOT_FOUND';
         }
 
+        // 2D/3D Mixing (from OpenSCAD warnings)
+        if (errorLog.includes('Scaling a 2D object with 0') || errorLog.includes('Empty extrusion')) {
+            return 'DIMENSIONALITY_MIXING';
+        }
+
         return 'GENERAL_ERROR';
     }
 }

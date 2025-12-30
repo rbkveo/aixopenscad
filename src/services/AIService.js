@@ -54,7 +54,7 @@ class AIService {
     async loadKnowledgeBase() {
         if (this.knowledgeBase) return;
         try {
-            // Enhanced Knowledge Base for OpenSCAD - CGAL-Safe Patterns
+            // Enhanced Knowledge Base for OpenSCAD - BOSL2 & CGAL-Safe Patterns
             this.knowledgeBase = `
 OpenSCAD Syntax & CRITICAL CGAL-Safe Best Practices:
 
@@ -62,61 +62,41 @@ OpenSCAD Syntax & CRITICAL CGAL-Safe Best Practices:
 
 2. MODULES: Use 'module name(params) { ... }' for reusable components.
 
-3. BOOLEAN OPERATIONS (CRITICAL FOR CGAL):
+3. BOSL2 PREFERENCE (MANDATORY):
+   - Use 'include <BOSL2/std.scad>'
+   - Use 'cyl()' instead of 'cylinder()'
+   - Use 'cuboid()' instead of 'cube()'
+   - Use 'torus()' for rings or handles
+   - Use 'diff()' for boolean differences with automated placement
+   - Use Anchors and 'attach()' for positioning (e.g., 'attach(RIGHT) torus(...)')
+
+4. NO BARE 2D OBJECTS:
+   - NEVER use 'circle()', 'square()', or 'polygon()' directly in a 3D scene.
+   - 2D objects MUST be wrapped in 'linear_extrude()' or 'rotate_extrude()'.
+   - Mixing 2D and 3D in 'difference()' or 'union()' without extrusion causes errors.
+
+5. BOOLEAN OPERATIONS:
    - 'union()', 'difference()', 'intersection()' wrap children in braces {}
-   - ALWAYS use epsilon (eps) for difference() operations
-   - Keep boolean nesting depth <= 3 levels to avoid CGAL errors
-   - Avoid coincident faces at all costs
+   - ALWAYS use epsilon (eps) for difference() if not using BOSL2 'diff()' or tags.
+   - Keep boolean nesting depth <= 3 levels.
 
-4. EPSILON RULES (MANDATORY):
-   - Define: eps = 0.01; at the top of your code
+6. EPSILON RULES (MANDATORY for vanilla OpenSCAD):
+   - Define: eps = 0.01; at the top
    - For difference(): subtract object must extend beyond parent by 2*eps
-   - Example (CORRECT):
-     eps = 0.01;
-     difference() {
-       cube(10);
-       translate([5, 5, -eps]) cylinder(h=10+2*eps, r=2);
-     }
-   - Example (WRONG - will cause CGAL error):
-     difference() {
-       cube(10);
-       translate([5, 5, 0]) cylinder(h=10, r=2);  // NO EPSILON!
-     }
 
-5. DIMENSION CONSTRAINTS:
-   - Minimum dimension: 0.1 (avoid very small values < 0.01)
-   - Maximum dimension: 1000 (avoid very large values > 10000)
-   - Use reasonable proportions (avoid aspect ratios > 100:1)
+7. DIMENSION CONSTRAINTS:
+   - Minimum dimension: 0.1
+   - Maximum dimension: 1000
 
-6. 3D PRIMITIVES:
-   - cube(size|[x,y,z], center=true|false)
-   - sphere(r=radius | d=diameter, $fn=segments)
-   - cylinder(h=height, r=radius | d=diameter, r1, r2, $fn=segments)
-   - Always specify $fn for smooth curves: $fn=50 or higher
+8. BOSL2 TAGS:
+   - Use 'tag("remove")' inside 'diff() { ... }' to subtract objects.
+   - Example: 'diff() cyl(r=10, h=20) tag("remove") up(5) cyl(r=8, h=21);'
 
-7. TRANSFORMATIONS:
-   - translate([x,y,z]) - move objects
-   - rotate([x,y,z]) - rotate in degrees
-   - scale([x,y,z]) - resize objects
-
-8. SAFE PATTERNS:
-   - Use minkowski() for rounded edges instead of complex boolean ops
-   - Prefer simple primitives over polyhedron() when possible
-   - Test with union() before using difference()
-   - Build complex shapes incrementally, not all at once
-
-9. COMMON CGAL PITFALLS TO AVOID:
-   ❌ Missing epsilon in difference()
-   ❌ Coincident faces (two surfaces at exact same position)
+9. COMMON PITFALLS:
+   ❌ Mixing 2D (circle) and 3D (cylinder) in difference()
+   ❌ Missing epsilon in vanilla difference()
+   ❌ Coincident faces
    ❌ Zero-thickness geometry
-   ❌ Very small dimensions (< 0.01)
-   ❌ Deeply nested boolean operations (> 3 levels)
-   ❌ Non-manifold edges (edges shared by more than 2 faces)
-
-10. PARAMETRIC DESIGN:
-    - Define all variables at the top
-    - Use meaningful variable names
-    - Include comments for complex calculations
 `;
         } catch (err) {
             console.error("Failed to load knowledge base:", err);
@@ -169,9 +149,9 @@ OpenSCAD Syntax & CRITICAL CGAL-Safe Best Practices:
         if (this.config.enableRAG) {
             try {
                 const { ragService } = await import('./RAGService');
-                const results = await ragService.search(prompt);
+                const results = await ragService.search(prompt, 12);
                 if (results.length > 0) {
-                    ragContext = "\n\nRelevant Vanilla OpenSCAD Documentation:\n" +
+                    ragContext = "\n\nRelevant RAG Documentation & Examples:\n" +
                         results.map(r => `[Source: ${r.metadata.source}]\n${r.content}`).join('\n---\n');
                     this._log('RAG Retrieval', { chunks: results.length });
                 }
@@ -207,9 +187,11 @@ MANDATORY CGAL-SAFE REQUIREMENTS:
    - Keep nesting depth <= 3 levels
    - Avoid coincident faces
    - Use $fn=50 or higher for curves
-5. BOSL2 Usage:
-   - Prefer BOSL2 modules (cuboid, cyl, etc.) over vanilla primitives when appropriate for clearer code.
-   - Example: cuboid([10,20,30], rounding=2) is better than complex hull() operations.
+210. BOSL2 Usage:
+   - Prefer BOSL2 modules (cuboid, cyl, torus, etc.) over vanilla primitives.
+   - Use 'diff() { ... }' and 'tag("remove")' for cleaner subtractions.
+   - Use 'attach()' and Anchors ('BOTTOM', 'TOP', 'RIGHT', etc.) for positioning.
+   - NEVER mix 2D primitives (circle, square) with 3D primitives (cyl, cuboid) without extrusion.
 
 Output Schema:
 {

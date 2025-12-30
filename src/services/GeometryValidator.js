@@ -14,6 +14,9 @@ class GeometryValidator {
             },
             nesting: {
                 check: (code) => this.checkBooleanNesting(code)
+            },
+            dimensionality: {
+                check: (code) => this.checkDimensionality(code)
             }
         };
     }
@@ -44,13 +47,15 @@ class GeometryValidator {
 
         // Check 3: Boolean nesting depth
         const nestCheck = this.checkBooleanNesting(code);
-        if (!nestCheck.valid) {
-            result.warnings.push(...nestCheck.warnings);
-        }
+        result.warnings.push(...nestCheck.warnings);
 
         // Check 4: $fn specification
         const fnCheck = this.checkFnSpecification(code);
         result.warnings.push(...fnCheck.warnings);
+
+        // Check 5: 2D/3D Dimensionality mixing
+        const dimMixCheck = this.checkDimensionality(code);
+        result.warnings.push(...dimMixCheck.warnings);
 
         return result;
     }
@@ -144,7 +149,7 @@ class GeometryValidator {
      * Check boolean operation nesting depth
      */
     checkBooleanNesting(code) {
-        const result = { valid: true, warnings: [] };
+        const result = { warnings: [] };
 
         // Count nesting depth of boolean operations
         const booleanOps = ['difference', 'union', 'intersection'];
@@ -171,6 +176,47 @@ class GeometryValidator {
                 message: `Boolean operation nesting depth is ${maxDepth} (recommended: <= 3).`,
                 severity: 'warning',
                 fix: 'Simplify by breaking into separate modules or using intermediate variables'
+            });
+        }
+
+        return result;
+    }
+
+    /**
+     * Check for 2D/3D dimensionality mixing and empty extrusions
+     */
+    checkDimensionality(code) {
+        const result = { warnings: [] };
+
+        // 1. Detect 2D objects that might be mixed into 3D scenes
+        // circle, square, polygon, text
+        const twoDPrimitives = ['circle', 'square', 'polygon', 'text'];
+
+        // This is a naive check: if we see 2D primitives and 3D primitives (cube, cylinder, sphere, cyl, cuboid)
+        // in the same file, warn about potential mixing if no extrusions are present.
+        const threeDPrimitives = ['cube', 'cylinder', 'sphere', 'cyl', 'cuboid', 'torus', 'rect_tube', 'tube'];
+
+        const has2D = twoDPrimitives.some(p => new RegExp(`\\b${p}\\s*\\(`).test(code));
+        const has3D = threeDPrimitives.some(p => new RegExp(`\\b${p}\\s*\\(`).test(code));
+        const hasExtrusion = /\b(linear_extrude|rotate_extrude)\b/.test(code);
+
+        if (has2D && has3D && !hasExtrusion) {
+            result.warnings.push({
+                type: 'DIMENSIONALITY_MIXING',
+                message: 'Detected both 2D and 3D primitives without extrusions. This often causes "Scaling a 2D object with 0" errors.',
+                severity: 'warning',
+                fix: 'Wrap 2D objects (circle, square, etc.) in linear_extrude() or rotate_extrude()'
+            });
+        }
+
+        // 2. Detect empty extrusions: linear_extrude(h=...) {};
+        const emptyExtrusionPattern = /linear_extrude\s*\([^)]*\)\s*\{\s*;\s*\}/g;
+        if (emptyExtrusionPattern.test(code)) {
+            result.warnings.push({
+                type: 'EMPTY_EXTRUSION',
+                message: 'Detected linear_extrude() with no children.',
+                severity: 'warning',
+                fix: 'Add a 2D object (like circle or square) inside the extrusion braces'
             });
         }
 
