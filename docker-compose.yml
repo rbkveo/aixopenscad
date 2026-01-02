@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  aix-openscad:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - VITE_GEMINI_API_KEY=${VITE_GEMINI_API_KEY}
+      - VITE_OLLAMA_HOST=${VITE_OLLAMA_HOST}
+    restart: always
