@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader';
+import { Camera, Axis3D, Move, Target, LayoutGrid } from 'lucide-react';
 
 const ThreeDViewer = forwardRef(({ stlData }, ref) => {
     const containerRef = useRef(null);
@@ -9,30 +10,43 @@ const ThreeDViewer = forwardRef(({ stlData }, ref) => {
     const sceneRef = useRef(null);
     const cameraRef = useRef(null);
     const controlsRef = useRef(null);
+    const axesRef = useRef(null);
+
+    const [showAxes, setShowAxes] = useState(true);
+    const [controlMode, setControlMode] = useState('orbit'); // 'orbit' or 'pan'
 
     // Track current data to avoid redundant updates
     const lastStlDataRef = useRef(null);
 
     useImperativeHandle(ref, () => ({
-        captureScreenshot() {
+        captureScreenshot(forAI = true) {
             if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return null;
             // Force render
             rendererRef.current.render(sceneRef.current, cameraRef.current);
 
-            // Resize for AI model (Target: 800x600)
-            const targetWidth = 800;
-            const targetHeight = 600;
             const originalCanvas = rendererRef.current.domElement;
 
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = targetWidth;
-            tempCanvas.height = targetHeight;
-            const ctx = tempCanvas.getContext('2d');
-
-            // Draw original onto temp canvas (resizing)
-            ctx.drawImage(originalCanvas, 0, 0, originalCanvas.width, originalCanvas.height, 0, 0, targetWidth, targetHeight);
-
-            return tempCanvas.toDataURL('image/jpeg', 0.8); // JPEG at 80% quality is much smaller than PNG
+            if (forAI) {
+                // Resize for AI model (Target: 800x600)
+                const targetWidth = 800;
+                const targetHeight = 600;
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = targetWidth;
+                tempCanvas.height = targetHeight;
+                const ctx = tempCanvas.getContext('2d');
+                ctx.drawImage(originalCanvas, 0, 0, originalCanvas.width, originalCanvas.height, 0, 0, targetWidth, targetHeight);
+                return tempCanvas.toDataURL('image/jpeg', 0.8);
+            } else {
+                // Full resolution for user
+                return originalCanvas.toDataURL('image/png');
+            }
+        },
+        downloadScreenshot() {
+            const dataUrl = this.captureScreenshot(false);
+            const link = document.createElement('a');
+            link.download = `aix-openscad-export-${new Date().toISOString().slice(0, 19)}.png`;
+            link.href = dataUrl;
+            link.click();
         }
     }));
 
@@ -74,7 +88,15 @@ const ThreeDViewer = forwardRef(({ stlData }, ref) => {
         scene.add(dirLight);
 
         // HELPERS
-        scene.add(new THREE.GridHelper(10, 10, 0x444444, 0x222222));
+        const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        grid.name = "GRID";
+        scene.add(grid);
+
+        const axes = new THREE.AxesHelper(10);
+        axes.name = "AXES";
+        axes.visible = showAxes;
+        scene.add(axes);
+        axesRef.current = axes;
 
         // CONTENT GROUP
         const mainGroup = new THREE.Group();
@@ -129,6 +151,32 @@ const ThreeDViewer = forwardRef(({ stlData }, ref) => {
             }
         };
     }, []);
+
+    // Update Axes visibility
+    useEffect(() => {
+        if (axesRef.current) {
+            axesRef.current.visible = showAxes;
+        }
+    }, [showAxes]);
+
+    // Update Control Mode
+    useEffect(() => {
+        if (controlsRef.current) {
+            if (controlMode === 'pan') {
+                controlsRef.current.mouseButtons = {
+                    LEFT: THREE.MOUSE.PAN,
+                    MIDDLE: THREE.MOUSE.DOLLY,
+                    RIGHT: THREE.MOUSE.ROTATE
+                };
+            } else {
+                controlsRef.current.mouseButtons = {
+                    LEFT: THREE.MOUSE.ROTATE,
+                    MIDDLE: THREE.MOUSE.DOLLY,
+                    RIGHT: THREE.MOUSE.PAN
+                };
+            }
+        }
+    }, [controlMode]);
 
     const updateScene = (data) => {
         const scene = sceneRef.current;
@@ -206,11 +254,78 @@ const ThreeDViewer = forwardRef(({ stlData }, ref) => {
         }
     }, [stlData]);
 
+    const ControlButton = ({ icon: Icon, onClick, active, title }) => (
+        <button
+            onClick={onClick}
+            title={title}
+            className={`p-2 rounded-md transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+        >
+            <Icon size={16} />
+        </button>
+    );
+
     return (
-        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} className="viewer-container">
-            <div style={{ position: 'absolute', top: '16px', left: '16px', background: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: '4px', fontSize: '10px', color: '#888', zIndex: 10 }}>
-                3D PREVIEW
+        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} className="viewer-container group">
+            {/* Legend Overlay */}
+            <div className="absolute top-4 left-4 flex flex-col gap-1 pointer-events-none select-none z-10">
+                <div className="bg-slate-900/40 backdrop-blur-sm px-3 py-1 rounded text-[10px] uppercase tracking-wider text-slate-400 font-medium">
+                    3D Preview
+                </div>
             </div>
+
+            {/* Controls Overlay */}
+            <div className="absolute top-4 right-4 flex flex-col gap-2 z-20 transition-opacity duration-300">
+                <div className="flex bg-slate-900/80 backdrop-blur-md p-1 rounded-lg border border-slate-700/50 shadow-xl">
+                    <ControlButton
+                        icon={Target}
+                        onClick={() => setControlMode('orbit')}
+                        active={controlMode === 'orbit'}
+                        title="Orbit Mode (Left Click)"
+                    />
+                    <ControlButton
+                        icon={Move}
+                        onClick={() => setControlMode('pan')}
+                        active={controlMode === 'pan'}
+                        title="Pan Mode (Left Click)"
+                    />
+                </div>
+
+                <div className="flex bg-slate-900/80 backdrop-blur-md p-1 rounded-lg border border-slate-700/50 shadow-xl">
+                    <ControlButton
+                        icon={Axis3D}
+                        onClick={() => setShowAxes(!showAxes)}
+                        active={showAxes}
+                        title="Toggle Axes"
+                    />
+                    <ControlButton
+                        icon={Camera}
+                        onClick={() => {
+                            const dataUrl = rendererRef.current.domElement.toDataURL('image/png');
+                            const link = document.createElement('a');
+                            link.download = `stl-capture-${Date.now()}.png`;
+                            link.href = dataUrl;
+                            link.click();
+                        }}
+                        title="Save Screenshot"
+                    />
+                </div>
+            </div>
+
+            {/* Axes Legend (When axes are shown) */}
+            {showAxes && (
+                <div className="absolute bottom-4 left-4 flex gap-3 pointer-events-none">
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-red-500 font-bold bg-black/30 px-2 py-0.5 rounded">
+                        <div className="w-2 h-0.5 bg-red-500" /> X
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-green-500 font-bold bg-black/30 px-2 py-0.5 rounded">
+                        <div className="w-2 h-0.5 bg-green-500" /> Y
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-blue-500 font-bold bg-black/30 px-2 py-0.5 rounded">
+                        <div className="w-2 h-0.5 bg-blue-500" /> Z
+                    </div>
+                </div>
+            )}
         </div>
     );
 });
