@@ -92,9 +92,11 @@ const ThreeDViewer = forwardRef(({ stlData }, ref) => {
         grid.name = "GRID";
         scene.add(grid);
 
-        const axes = new THREE.AxesHelper(10);
+        const axes = new THREE.AxesHelper(50);
         axes.name = "AXES";
         axes.visible = showAxes;
+        axes.material.depthTest = false;
+        axes.renderOrder = 999;
         scene.add(axes);
         axesRef.current = axes;
 
