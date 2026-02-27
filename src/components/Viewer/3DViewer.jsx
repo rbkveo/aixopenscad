@@ -152,7 +152,7 @@ const ThreeDViewer = forwardRef(({ stlData }, ref) => {
                 container.removeChild(renderer.domElement);
             }
         };
-    }, []);
+    }, [showAxes, stlData]);
 
     // Update Axes visibility
     useEffect(() => {
@@ -263,7 +263,7 @@ const ThreeDViewer = forwardRef(({ stlData }, ref) => {
             className={`p-2 rounded-md transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700'
                 }`}
         >
-            <Icon size={16} />
+            {Icon && <Icon size={16} />}
         </button>
     );
 

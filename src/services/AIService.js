@@ -24,7 +24,7 @@ class AIService {
             host: import.meta.env.VITE_OLLAMA_HOST || 'http://localhost:11434'
         });
 
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyCi_d-MGlHcJPvrTLXl6xLAV9Jldbcz6sQ';
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         this.genAI = new GoogleGenAI({ apiKey });
 
         this.knowledgeBase = null;
@@ -435,7 +435,7 @@ Task:
                         suggestedCode: parsed.openscad_code,
                         metadata: { name: parsed.name, parameters: parsed.parameters }
                     };
-                } catch (e) {
+                } catch {
                     this._log('Gemini JSON Parse Error', { content });
                     return this._parseResponse(content);
                 }
@@ -488,7 +488,7 @@ Task:
                         suggestedCode: parsed.openscad_code,
                         metadata: { name: parsed.name, parameters: parsed.parameters }
                     };
-                } catch (e) {
+                } catch {
                     this._log('Ollama JSON Parse Error', { content });
                     return this._parseResponse(content);
                 }

@@ -6,6 +6,7 @@ import { aiService } from './services/AIService';
 import { localDBService } from './services/LocalDBService';
 import { ragService } from './services/RAGService';
 import { imageService } from './services/ImageService';
+import { loggingService } from './services/LoggingService';
 import {
   Send, Box, Code, Settings, MessageSquare,
   PanelLeftClose, PanelLeft, Terminal, Loader2,
@@ -610,7 +611,6 @@ function App() {
                     <button
                       className="clear-logs"
                       onClick={() => {
-                        const { loggingService } = require('./services/LoggingService');
                         loggingService.downloadLogsAsText();
                       }}
                       title="Download logs as text file"
@@ -622,7 +622,6 @@ function App() {
                       onClick={() => {
                         aiService.clearLogs();
                         setPipelineLogs([]);
-                        const { loggingService } = require('./services/LoggingService');
                         loggingService.clearLogs();
                       }}
                     >
