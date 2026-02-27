@@ -427,6 +427,8 @@ Task:
 
             const content = response.response.text();
 
+            this._log('AI: Raw Response (Gemini)', { model: modelId, rawText: content });
+
             if (isJson) {
                 try {
                     const parsed = JSON.parse(content);
@@ -442,7 +444,7 @@ Task:
             }
 
             const result = this._parseResponse(content);
-            this._log('Gemini Response', { model: modelId, response: result.text.substring(0, 100) + '...' });
+            this._log('Gemini Response', { model: modelId, response: result.text });
             return result;
         } catch (err) {
             this._log('Gemini Error', { error: err.message });
@@ -480,6 +482,8 @@ Task:
 
             const content = response.message.content;
 
+            this._log('AI: Raw Response (Ollama)', { model: modelName, rawText: content });
+
             if (isJson) {
                 try {
                     const parsed = JSON.parse(content);
@@ -495,7 +499,7 @@ Task:
             }
 
             const result = this._parseResponse(content);
-            this._log('Ollama Response', { model: modelName, response: result.text.substring(0, 100) + '...' });
+            this._log('Ollama Response', { model: modelName, response: result.text });
             return result;
         } catch (err) {
             this._log('Ollama Error', { error: err.message });

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import CodeEditor from './components/Editor/CodeEditor';
 import ThreeDViewer from './components/Viewer/3DViewer';
+import AdminPanel from './components/Admin/AdminPanel';
 import { openSCADService } from './services/OpenSCADService';
 import { aiService } from './services/AIService';
 import { localDBService } from './services/LocalDBService';
@@ -36,6 +37,12 @@ function App() {
   const [uploadedImage, setUploadedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return !import.meta.env.VITE_ADMIN_PASSWORD || sessionStorage.getItem('admin_auth') === 'true';
+  });
+  const [authInput, setAuthInput] = useState('');
 
   // Persistence (Local)
   const [activeChat, setActiveChat] = useState(null);
@@ -375,6 +382,41 @@ function App() {
     }
   };
 
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (authInput === import.meta.env.VITE_ADMIN_PASSWORD) {
+      sessionStorage.setItem('admin_auth', 'true');
+      setIsAuthenticated(true);
+    } else {
+      alert("Incorrect password");
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="login-container">
+        <div className="login-box glass">
+          <div className="logo mx-auto mb-6" style={{ justifyContent: 'center' }}>
+            <Box className="logo-icon" size={32} color="var(--accent-primary)" />
+            <span className="logo-text" style={{ fontSize: '24px' }}>AiX<span>openscad</span></span>
+          </div>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <input
+              type="password"
+              value={authInput}
+              onChange={(e) => setAuthInput(e.target.value)}
+              placeholder="Enter Admin Password"
+              className="chat-textarea"
+              style={{ padding: '10px', height: '40px', minHeight: '40px', borderRadius: '8px' }}
+              autoFocus
+            />
+            <button type="submit" className="button-primary">Login</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <header className="app-header glass">
@@ -424,9 +466,12 @@ function App() {
             <button className={`tab ${activeTab === 'debug' ? 'active' : ''}`} onClick={() => setActiveTab('debug')}>
               <Terminal size={18} /><span>Logs</span>
             </button>
+            <button className={`tab ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>
+              <Settings size={18} /><span>Admin</span>
+            </button>
           </div>
 
-          <div className="sidebar-content">
+          <div className="sidebar-content" style={{ overflowY: 'auto', flex: 1 }}>
             {activeTab === 'chat' && (
               <div className="sidebar-chat">
                 <div className="chat-history">
@@ -645,6 +690,10 @@ function App() {
                   }
                 </div>
               </div>
+            )}
+
+            {activeTab === 'admin' && (
+              <AdminPanel />
             )}
           </div>
         </aside>
