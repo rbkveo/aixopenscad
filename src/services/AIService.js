@@ -21,7 +21,7 @@ class AIService {
         };
 
         this.ollama = new Ollama({
-            host: import.meta.env.VITE_OLLAMA_HOST || 'http://localhost:11434'
+            host: import.meta.env.VITE_OLLAMA_HOST || '/ollama'
         });
 
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;

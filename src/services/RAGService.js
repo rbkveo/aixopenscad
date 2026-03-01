@@ -2,7 +2,7 @@ import { localDBService } from './LocalDBService';
 
 class RAGService {
     constructor() {
-        this.ollamaHost = localStorage.getItem('ollamaHost') || 'http://100.79.78.30:11434';
+        this.ollamaHost = import.meta.env.VITE_OLLAMA_HOST || '/ollama';
         this.embeddingModel = 'nomic-embed-text'; // Standard embedding model
         this.isIndexing = false;
     }
